@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Canteen Counter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef2f5;--ink:#14232b;--muted:#5d6f78;--teal:#0f4c5c;--teal-d:#0a3541;--yellow:#f2b705;--line:#cfd9de;--card:#fff;--red:#b3261e;--green:#1b7a4b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,sans-serif;line-height:1.45}
+header{background:var(--teal);color:#fff;padding:18px 20px 0}
+header h1{margin:0;font-size:1.6rem;font-weight:800;letter-spacing:-.01em}
+header p{margin:2px 0 12px;color:#bcd3da;font-size:.9rem}
+nav{display:flex;gap:4px;flex-wrap:wrap}
+nav button{background:transparent;border:0;color:#bcd3da;font:inherit;font-weight:600;padding:10px 16px;cursor:pointer;border-radius:8px 8px 0 0}
+nav button.on{background:var(--bg);color:var(--ink)}
+nav button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+main{max-width:980px;margin:0 auto;padding:20px}
+section{display:none}section.on{display:block}
+h2{margin:0 0 12px;font-size:1.2rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+form.row{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr auto auto;gap:8px;align-items:end}
+label{font-size:.8rem;color:var(--muted);display:block;margin-bottom:2px}
+input,select{width:100%;font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.chk{display:flex;align-items:center;gap:6px;padding-bottom:8px;white-space:nowrap}.chk input{width:auto}
+button.btn{font:inherit;font-weight:600;border:0;border-radius:6px;padding:9px 14px;cursor:pointer;background:var(--teal);color:#fff}
+button.btn:hover{background:var(--teal-d)}
+button.alt{background:#e3eaee;color:var(--ink)}button.alt:hover{background:#d3dde3}
+button.del{background:#fbe9e7;color:var(--red)}button.del:hover{background:#f6d4d0}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);font-size:.95rem}
+th{color:var(--muted);font-weight:600;font-size:.8rem}
+td.act{white-space:nowrap;text-align:right}td.act button{margin-left:4px;padding:6px 10px}
+.low{color:var(--red);font-weight:600}
+.pill{display:inline-block;background:var(--yellow);color:#3b2d00;font-size:.72rem;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:6px}
+.grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+.pick{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
+.pick .qty{display:flex;align-items:center;gap:6px}.pick .qty button{width:30px;padding:5px 0}
+.pick .qty span{min-width:20px;text-align:center;font-weight:600}
+.total{font-size:1.4rem;font-weight:800;margin:10px 0}
+.tickets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.ticket{background:#fff;border:1px solid var(--line);border-left:8px solid var(--yellow);border-radius:8px;padding:12px}
+.ticket.Ready{border-left-color:var(--green)}.ticket.Collected{border-left-color:#9aa9b0;opacity:.7}
+.ticket .tk{font-size:2rem;font-weight:800;line-height:1}
+.ticket small{color:var(--muted)}
+.ticket ul{margin:8px 0;padding-left:18px}
+.ticket .btns{display:flex;gap:6px;margin-top:8px}
+#msg{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:8px;display:none;max-width:90%}
+#msg.err{background:var(--red)}
+.empty{color:var(--muted);padding:12px 0}
+#dbinfo{font-size:.8rem;color:var(--muted)}
+@media(max-width:760px){form.row{grid-template-columns:1fr 1fr}.grid{grid-template-columns:1fr}.tbl{overflow-x:auto}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Canteen Counter</h1>
+  <p>Menu, orders and token queue, saved in a remote MySQL database.</p>
+  <nav id="tabs">
+    <button data-t="order" class="on">Place order</button>
+    <button data-t="queue">Token queue</button>
+    <button data-t="menu">Manage menu</button>
+  </nav>
+</header>
+<main>
+
+<section id="order" class="on">
+  <div class="grid">
+    <div class="card">
+      <h2>Pick items</h2>
+      <div id="pickList"></div>
+    </div>
+    <div class="card">
+      <h2>Your order</h2>
+      <label for="cust">Customer name</label>
+      <input id="cust" placeholder="e.g. Swaasna">
+      <div id="cartLines" class="empty">Nothing added yet.</div>
+      <div class="total" id="cartTotal">₹0</div>
+      <button class="btn" id="placeBtn">Place order</button>
+    </div>
+  </div>
+</section>
+
+<section id="queue">
+  <h2>Token queue</h2>
+  <div class="tickets" id="tickets"></div>
+</section>
+
+<section id="menu">
+  <div class="card">
+    <h2 id="formTitle">Add menu item</h2>
+    <form class="row" id="itemForm">
+      <div><label for="f_name">Name</label><input id="f_name" required></div>
+      <div><label for="f_cat">Category</label><input id="f_cat" value="Snacks"></div>
+      <div><label for="f_price">Price (₹)</label><input id="f_price" type="number" min="0" step="0.5" required></div>
+      <div><label for="f_stock">Stock</label><input id="f_stock" type="number" min="0" step="1" required></div>
+      <div class="chk"><input id="f_sp" type="checkbox"><label for="f_sp" style="margin:0">Today's special</label></div>
+      <div style="display:flex;gap:6px"><button class="btn" id="saveBtn" type="submit">Add item</button><button class="btn alt" id="cancelEdit" type="button" hidden>Cancel</button></div>
+    </form>
+  </div>
+  <div class="card tbl">
+    <table>
+      <thead><tr><th>Item</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr></thead>
+      <tbody id="menuBody"></tbody>
+    </table>
+  </div>
+  <div id="dbinfo"></div>
+</section>
+
+</main>
+<div id="msg" role="status"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const api = async (url, method = 'GET', body) => {
+  const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || 'Request failed');
+  return data;
+};
+let toastT;
+function toast(text, err) {
+  const m = $('#msg'); m.textContent = text; m.className = err ? 'err' : ''; m.style.display = 'block';
+  clearTimeout(toastT); toastT = setTimeout(() => (m.style.display = 'none'), 3200);
+}
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, true); } };
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+// ----- tabs -----
+document.querySelectorAll('#tabs button').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
+  document.querySelectorAll('main section').forEach((s) => s.classList.toggle('on', s.id === b.dataset.t));
+  refresh();
+});
+
+let menu = [], cart = {}, editId = null;
+
+// ----- menu (Create / Read / Update / Delete) -----
+const loadMenu = guard(async () => { menu = await api('/api/menu'); renderMenu(); renderPick(); });
+
+function renderMenu() {
+  $('#menuBody').innerHTML = menu.length ? menu.map((m) => `
+    <tr><td>${esc(m.name)}${m.is_special ? '<span class="pill">Special</span>' : ''}</td>
+    <td>${esc(m.category)}</td><td>₹${Number(m.price)}</td>
+    <td class="${m.stock < 5 ? 'low' : ''}">${m.stock}</td>
+    <td class="act"><button class="btn alt" onclick="editItem(${m.id})">Edit</button><button class="btn del" onclick="delItem(${m.id})">Delete</button></td></tr>`).join('')
+    : '<tr><td colspan="5" class="empty">No items yet. Add your first item above.</td></tr>';
+}
+
+$('#itemForm').onsubmit = guard(async (e) => {
+  e.preventDefault();
+  const body = { name: $('#f_name').value, category: $('#f_cat').value, price: $('#f_price').value, stock: $('#f_stock').value, is_special: $('#f_sp').checked };
+  if (editId) { await api('/api/menu/' + editId, 'PUT', body); toast('Item updated'); }
+  else { await api('/api/menu', 'POST', body); toast('Item added'); }
+  resetForm(); loadMenu();
+});
+function resetForm() {
+  editId = null; $('#itemForm').reset(); $('#f_cat').value = 'Snacks';
+  $('#formTitle').textContent = 'Add menu item'; $('#saveBtn').textContent = 'Add item'; $('#cancelEdit').hidden = true;
+}
+$('#cancelEdit').onclick = resetForm;
+window.editItem = (id) => {
+  const m = menu.find((x) => x.id === id); editId = id;
+  $('#f_name').value = m.name; $('#f_cat').value = m.category; $('#f_price').value = m.price; $('#f_stock').value = m.stock; $('#f_sp').checked = !!m.is_special;
+  $('#formTitle').textContent = 'Edit menu item'; $('#saveBtn').textContent = 'Save changes'; $('#cancelEdit').hidden = false;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+window.delItem = guard(async (id) => {
+  if (!confirm('Delete this item from the menu?')) return;
+  await api('/api/menu/' + id, 'DELETE'); toast('Item deleted'); loadMenu();
+});
+
+// ----- placing an order -----
+function renderPick() {
+  $('#pickList').innerHTML = menu.length ? menu.map((m) => `
+    <div class="pick"><div><strong>${esc(m.name)}</strong>${m.is_special ? '<span class="pill">Special</span>' : ''}<br><small>₹${Number(m.price)} · ${m.stock > 0 ? m.stock + ' left' : 'Sold out'}</small></div>
+    <div class="qty"><button class="btn alt" onclick="chg(${m.id},-1)" aria-label="Remove one ${esc(m.name)}">−</button><span>${cart[m.id] || 0}</span><button class="btn alt" onclick="chg(${m.id},1)" aria-label="Add one ${esc(m.name)}" ${m.stock <= (cart[m.id] || 0) ? 'disabled' : ''}>+</button></div></div>`).join('')
+    : '<div class="empty">The menu is empty. Add items in Manage menu.</div>';
+  const lines = menu.filter((m) => cart[m.id]);
+  $('#cartLines').innerHTML = lines.length ? lines.map((m) => `<div class="pick"><span>${cart[m.id]} × ${esc(m.name)}</span><span>₹${cart[m.id] * m.price}</span></div>`).join('') : 'Nothing added yet.';
+  $('#cartLines').className = lines.length ? '' : 'empty';
+  $('#cartTotal').textContent = '₹' + lines.reduce((s, m) => s + cart[m.id] * m.price, 0);
+}
+window.chg = (id, d) => { cart[id] = Math.max(0, (cart[id] || 0) + d); renderPick(); };
+$('#placeBtn').onclick = guard(async () => {
+  const items = Object.entries(cart).filter(([, q]) => q > 0).map(([id, qty]) => ({ menu_item_id: Number(id), qty }));
+  const r = await api('/api/orders', 'POST', { customer_name: $('#cust').value, items });
+  cart = {}; $('#cust').value = ''; toast(`Order placed. Your token is #${r.token_no}`); loadMenu();
+});
+
+// ----- token queue (Read / Update / Delete orders) -----
+const loadQueue = guard(async () => {
+  const orders = await api('/api/orders');
+  $('#tickets').innerHTML = orders.length ? orders.map((o) => `
+    <div class="ticket ${o.status}">
+      <div class="tk">#${o.token_no}</div>
+      <strong>${esc(o.customer_name)}</strong> <small>· ${o.status}</small>
+      <ul>${o.items.map((i) => `<li>${i.qty} × ${esc(i.item_name)}</li>`).join('')}</ul>
+      <div><strong>₹${Number(o.total)}</strong></div>
+      <div class="btns">
+        ${o.status === 'Preparing' ? `<button class="btn" onclick="setStatus(${o.id},'Ready')">Mark ready</button>` : ''}
+        ${o.status === 'Ready' ? `<button class="btn" onclick="setStatus(${o.id},'Collected')">Mark collected</button>` : ''}
+        <button class="btn del" onclick="cancelOrder(${o.id})">Cancel</button>
+      </div>
+    </div>`).join('') : '<div class="empty">No orders yet. Place one from the first tab.</div>';
+});
+window.setStatus = guard(async (id, status) => { await api(`/api/orders/${id}/status`, 'PUT', { status }); loadQueue(); });
+window.cancelOrder = guard(async (id) => {
+  if (!confirm('Cancel this order? Stock will be returned to the menu.')) return;
+  await api('/api/orders/' + id, 'DELETE'); toast('Order cancelled'); loadQueue();
+});
+
+function refresh() { loadMenu(); loadQueue(); }
+refresh();
+fetch('/api/health').then((r) => r.json()).then((h) => { $('#dbinfo').textContent = `Connected to remote MySQL host: ${h.db_host} (database: ${h.database})`; }).catch(() => {});
+</script>
+</body>
+</html>
